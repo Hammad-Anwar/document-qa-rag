@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: document-qa-backend
+
+ai:
+  grpc:
+    host: ${AI_SERVICE_HOST:localhost}
+    port: ${AI_SERVICE_PORT:50051}

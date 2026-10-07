@@ -1,0 +1,19 @@
+# Local environment
+.env
+
+# Java
+backend/target/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+ai-service/app/generated/*_pb2.py
+ai-service/app/generated/*_pb2_grpc.py
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store

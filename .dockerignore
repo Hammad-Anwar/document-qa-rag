@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.idea
+.vscode
+**/__pycache__
+**/.pytest_cache
+**/target
+ai-service/app/generated/*_pb2.py
+ai-service/app/generated/*_pb2_grpc.py

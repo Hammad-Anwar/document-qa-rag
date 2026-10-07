@@ -1,0 +1,30 @@
+services:
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+    environment:
+      GRPC_PORT: ${AI_SERVICE_PORT:-50051}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; connection = socket.create_connection(('127.0.0.1', 50051), 2); connection.close()"
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_PORT: ${AI_SERVICE_PORT:-50051}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      ai-service:
+        condition: service_healthy
