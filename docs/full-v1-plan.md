@@ -14,13 +14,13 @@ Sources describe retrieved context, not an independently verified proof of each 
 
 ## Execution checklist
 
-- [ ] Extend protobuf and database migrations.
-- [ ] Test and implement Python loaders, splitting, embedding validation, transactional storage, retrieval, grounded chain, and RPC error mapping.
-- [ ] Test and implement Spring upload/status/question/history APIs and persistent states.
-- [ ] Configure Compose with pgvector, Ollama, model bootstrap, AI service, and backend; keep volumes and existing data recoverable.
-- [ ] Run unit suites and real database/gRPC integration checks.
+- [x] Extend protobuf and database migrations.
+- [x] Test and implement Python loaders, splitting, embedding validation, transactional storage, retrieval, grounded chain, and RPC error mapping.
+- [x] Test and implement Spring upload/status/question/history APIs and persistent states.
+- [x] Configure Compose with pgvector, Ollama, model bootstrap, AI service, and backend; keep volumes and existing data recoverable.
+- [x] Run unit suites and real database/gRPC integration checks.
 - [ ] Download small local models and exercise TXT/PDF upload, sources/history, document isolation, invalid requests, and dependency errors end to end.
-- [ ] Replace milestone docs with current run/API/schema/troubleshooting instructions and root-folder guide.
+- [x] Replace milestone docs with current run/API/schema/troubleshooting instructions and root-folder guide.
 
 ## Local model defaults
 
