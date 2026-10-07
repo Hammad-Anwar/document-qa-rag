@@ -23,6 +23,8 @@ First startup downloads container images and two models: llama3.2:3b for answers
 
 The API is available at http://localhost:8080. Database, gRPC, and Ollama ports stay inside Docker.
 
+**Swagger UI**: interactive API docs at http://localhost:8080/swagger-ui.html. The OpenAPI JSON is at http://localhost:8080/v3/api-docs.
+
 ## Upload and ask
 
 ```bash
@@ -53,6 +55,8 @@ Postman: import [the collection](examples/document-qa.postman_collection.json), 
 | POST | /api/documents/{id}/questions | Ask a 1–2000 character question |
 | GET | /api/documents/{id}/questions?limit=50&offset=0 | Saved history; max page size 100 |
 | GET | /api/health/ai | Check Spring -> Python gRPC connectivity |
+
+Swagger UI: http://localhost:8080/swagger-ui.html · OpenAPI JSON: http://localhost:8080/v3/api-docs
 
 See [API details](docs/api.md).
 

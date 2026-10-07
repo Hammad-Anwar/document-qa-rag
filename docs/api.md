@@ -2,6 +2,9 @@
 
 Base URL: http://localhost:8080
 
+Interactive Swagger UI: http://localhost:8080/swagger-ui.html  
+OpenAPI JSON: http://localhost:8080/v3/api-docs
+
 ## Upload
 
 POST /api/documents, multipart/form-data, required part file.
