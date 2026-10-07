@@ -44,5 +44,6 @@ class RagChain:
 
 def create_chat_model(settings):
     return ChatOllama(model=settings.llm_model, base_url=settings.ollama_url,
-                      temperature=0, num_predict=384, num_ctx=4096,
+                      temperature=0, num_predict=384,
+                      num_ctx=settings.model_context_tokens,
                       client_kwargs={"timeout": settings.timeout})

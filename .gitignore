@@ -17,3 +17,5 @@ ai-service/app/generated/*_pb2_grpc.py
 .idea/
 .vscode/
 .DS_Store
+.docs/
+

@@ -131,6 +131,7 @@ Edit .env, then run docker compose up --build -d. See [.env.example](.env.exampl
 | RETRIEVAL_MIN_SIMILARITY | 0.35 | Minimum cosine similarity |
 | AI_RPC_DEADLINE_SECONDS | 300 | Maximum document/question RPC duration |
 | MODEL_TIMEOUT_SECONDS | 240 | Individual Ollama request timeout |
+| MODEL_CONTEXT_TOKENS | 4096 | LLM context window size |
 
 Changing the embedding model or dimension requires re-uploading documents. Stored chunks record both; incompatible queries are rejected. Database passwords used in DATABASE_URL must be URL-safe or percent-encoded there.
 

@@ -12,9 +12,12 @@ class Settings:
     timeout: int = int(os.getenv("MODEL_TIMEOUT_SECONDS", "240"))
     top_k: int = int(os.getenv("RETRIEVAL_TOP_K", "4"))
     min_similarity: float = float(os.getenv("RETRIEVAL_MIN_SIMILARITY", "0.35"))
+    model_context_tokens: int = int(os.getenv("MODEL_CONTEXT_TOKENS", "4096"))
 
     def __post_init__(self):
         if self.dimensions < 1 or self.timeout < 1 or not 1 <= self.top_k <= 20:
             raise ValueError("Invalid model or retrieval configuration")
         if not -1 <= self.min_similarity <= 1:
             raise ValueError("Similarity threshold must be between -1 and 1")
+        if not 2048 <= self.model_context_tokens <= 32768:
+            raise ValueError("model context tokens must be between 2048 and 32768")
