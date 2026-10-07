@@ -1,8 +1,26 @@
 spring:
   application:
     name: document-qa-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/documentqa}
+    username: ${POSTGRES_USER:documentqa}
+    password: ${POSTGRES_PASSWORD:documentqa}
+    hikari:
+      connection-timeout: 5000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  flyway:
+    enabled: true
 
 ai:
   grpc:
     host: ${AI_SERVICE_HOST:localhost}
     port: ${AI_SERVICE_PORT:50051}
+    deadline-seconds: ${AI_RPC_DEADLINE_SECONDS:300}
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never

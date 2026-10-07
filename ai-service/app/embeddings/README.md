@@ -1,3 +1,3 @@
-# Embeddings package
+# Embeddings
 
-Reserved for a future replaceable embedding service. No embedding model is loaded in the ping milestone.
+embedding_service.py configures LangChain OllamaEmbeddings and rejects mismatched, zero, and non-finite vectors before storage. Model and dimensions are configurable; re-upload documents after changing either.

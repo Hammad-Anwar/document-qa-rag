@@ -1,0 +1,53 @@
+{
+  "info": {
+    "name": "Document QA RAG V1",
+    "description": "Run in order. Select a local PDF/TXT in Upload. A successful upload saves documentId for subsequent requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8080"},
+    {"key": "documentId", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "1. Check Python gRPC connectivity",
+      "request": {"method": "GET", "url": "{{baseUrl}}/api/health/ai"}
+    },
+    {
+      "name": "2. Upload PDF or TXT (choose file)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/documents",
+        "body": {"mode": "formdata", "formdata": [{"key": "file", "type": "file", "src": null}]}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": [
+          "pm.test('Document is ready', function () {",
+          "  pm.response.to.have.status(201);",
+          "  const document = pm.response.json();",
+          "  pm.expect(document.status).to.eql('READY');",
+          "  pm.collectionVariables.set('documentId', document.id);",
+          "});"
+        ]}
+      }]
+    },
+    {
+      "name": "3. Inspect document status",
+      "request": {"method": "GET", "url": "{{baseUrl}}/api/documents/{{documentId}}"}
+    },
+    {
+      "name": "4. Ask a document question",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/documents/{{documentId}}/questions",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"question\":\"How does TCP provide reliable delivery?\"}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "5. Read saved question history",
+      "request": {"method": "GET", "url": "{{baseUrl}}/api/documents/{{documentId}}/questions?limit=50&offset=0"}
+    }
+  ]
+}

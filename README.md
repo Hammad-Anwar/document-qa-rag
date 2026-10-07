@@ -1,179 +1,161 @@
 # Document QA RAG
 
-This repository is the foundation for a document question-answering backend. The current milestone intentionally implements only a small end-to-end check:
+Upload a PDF or UTF-8 TXT file, ask questions about its contents, and inspect answers with retrieved sources and saved history.
 
-```text
-HTTP client -> Spring Boot -> gRPC -> Python AI service
-```
+Spring Boot owns the REST API, document status, and question history. Python uses pypdf, LangChain, Ollama embeddings, and PostgreSQL/pgvector to process and retrieve document chunks. Both services communicate through gRPC.
 
-Calling Spring Boot returns a greeting created by Python. This proves that the Java and Python services can build, start, find each other on the Docker network, and communicate through their shared Protocol Buffer contract.
+## Start
 
-PostgreSQL, pgvector, LangChain, Ollama, document upload, and RAG are folder-level scaffolding only. They are not installed or started yet.
+Install Docker Engine/Desktop with Docker Compose. Local Java, Maven, and Python installations are optional.
 
-## Prerequisites
-
-- Docker Engine or Docker Desktop
-- Docker Compose v2 (`docker compose`)
-- `curl` for the example request
-
-Java, Maven, and Python do not need to be installed locally when you use Docker.
-
-## Run with Docker
-
-From the `document-qa-rag` repository directory:
+From the outer document-backend folder:
 
 ```bash
-cp .env.example .env
+cd document-qa-rag
+# Optional: copy only on first setup; preserve an existing .env.
+cp -n .env.example .env
 docker compose up --build -d
-docker compose ps
+docker compose ps -a
+docker compose logs -f ollama-init backend ai-service
 ```
 
-The first build downloads the Java, Maven, and Python base images plus project dependencies, so it takes longer than later builds.
+First startup downloads container images and two models: llama3.2:3b for answers and nomic-embed-text for embeddings. This needs several GB of disk space and internet access. Allow roughly 4 GB of free RAM for model execution, plus the backend/database. CPU execution works; allow several minutes on first use. PostgreSQL migrations run automatically when Spring starts. ollama-init should finish with exit code 0.
 
-Check the complete flow:
+The API is available at http://localhost:8080. Database, gRPC, and Ollama ports stay inside Docker.
+
+## Upload and ask
 
 ```bash
-curl http://localhost:8080/api/health/ai
+curl -sS -F "file=@examples/networking.txt" http://localhost:8080/api/documents
 ```
 
-Expected response:
-
-```json
-{"status":"UP","message":"Hello Spring Boot from Python AI service"}
-```
-
-Follow the logs:
+Copy the returned id, then use it below:
 
 ```bash
-docker compose logs -f backend ai-service
+DOCUMENT_ID="paste-the-returned-id"
+curl -sS "http://localhost:8080/api/documents/$DOCUMENT_ID"
+curl -sS -X POST "http://localhost:8080/api/documents/$DOCUMENT_ID/questions" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"How do TCP and UDP differ?"}'
+curl -sS "http://localhost:8080/api/documents/$DOCUMENT_ID/questions"
 ```
 
-Stop and remove the containers and project network:
+Upload responds with HTTP 201 and READY status after processing completes. A question responds with HTTP 201, an answer, source excerpts, chunk indices, PDF pages (null for TXT), similarity scores, and a saved question ID.
 
-```bash
-docker compose down
-```
+Postman: import [the collection](examples/document-qa.postman_collection.json), select examples/networking.txt in the upload request, and run the requests in order. Upload saves documentId automatically. Change the question for your own document.
 
-Rebuild after changing source or the protobuf contract:
+## Endpoints
 
-```bash
-docker compose up --build -d
-```
-
-## What Docker starts
-
-| Service | Role | Port |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `backend` | Spring Boot REST API and gRPC client | Host `8080` -> container `8080` |
-| `ai-service` | Python gRPC server | Internal Docker port `50051` |
+| POST | /api/documents | Upload PDF/TXT, max 10 MiB |
+| GET | /api/documents/{id} | Metadata and processing status |
+| POST | /api/documents/{id}/questions | Ask a 1–2000 character question |
+| GET | /api/documents/{id}/questions?limit=50&offset=0 | Saved history; max page size 100 |
+| GET | /api/health/ai | Check Spring -> Python gRPC connectivity |
 
-The Python port is not published to the host. Spring Boot reaches it using the Docker service name `ai-service`.
+See [API details](docs/api.md).
 
-## Request lifecycle
-
-1. The client sends `GET /api/health/ai` to Spring Boot.
-2. `AiHealthController` calls `AiHealthService`.
-3. `GrpcAiServiceClient` sends `PingRequest(name = "Spring Boot")` to `ai-service:50051` with a three-second deadline.
-4. Python's `DocumentAIService` returns the greeting.
-5. Spring Boot returns the greeting as JSON.
-
-If Python cannot be reached, Spring Boot returns HTTP `503 Service Unavailable` instead of waiting indefinitely.
-
-## Repository structure
+## Flow
 
 ```text
-document-qa-rag/
-├── backend/                 Spring Boot service
-├── ai-service/              Python gRPC service and future AI packages
-├── proto/                   Shared Java/Python gRPC contract
-├── database/                Future PostgreSQL + pgvector assets
-├── docker/                  Future shared Docker helpers
-├── docs/                    Architecture, API, design, and plans
-├── docker-compose.yml       Two-service local runtime
-├── .env.example             Safe local configuration example
-└── README.md                This guide
+Upload -> Spring validation -> committed PROCESSING record
+       -> Python gRPC -> extract text -> split into chunks
+       -> Ollama embeddings -> atomic pgvector insert -> READY
+
+Question -> Spring READY check -> Python gRPC -> question embedding
+         -> pgvector search filtered by document ID -> LangChain prompt
+         -> Ollama answer -> sources -> saved question/answer -> REST response
 ```
 
-Inside `backend`, the normal controller, service, gRPC, DTO, configuration, exception, entity, repository, and migration areas are present. Inside `ai-service/app`, the database, document, embeddings, retrieval, and RAG areas explain what belongs there in later milestones.
+Original files are processed in memory and not permanently stored. PDF page numbers are one-based, chunk indices zero-based. Scanned and encrypted PDFs are rejected. Text extraction is capped at 500 PDF pages, 2 million characters, and 3000 chunks.
 
-## Shared protobuf generation
+An upload failure preserves a FAILED metadata record; its error response includes documentId so you can inspect it. A later timeout or model outage returns a clear error rather than an invented answer.
 
-The source contract is [`proto/document_ai.proto`](proto/document_ai.proto). Do not edit generated files.
+## Folders
 
-- Maven generates Java sources automatically during the backend build.
-- The Python Dockerfile generates Python sources while building the image.
-- Generated sources and caches are excluded by `.gitignore` and `.dockerignore`.
+- backend: Java controllers, services, JDBC persistence, gRPC clients, Flyway migrations, tests, Dockerfile.
+- ai-service: Python document loader/splitter/processor, embeddings, vector storage, RAG prompt/chain, gRPC server, tests, Dockerfile.
+- proto: shared source contract; both languages generate their bindings during builds.
+- database: schema ownership and database notes.
+- docker: runtime notes.
+- docs: architecture, API, configuration, and implementation plan.
+- examples: sample upload.
+- scripts: full smoke test against the running services.
 
 ## Run tests
 
-### Python
-
-If Python 3.12 is installed locally:
+Python unit tests:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r ai-service/requirements.txt
-python -m grpc_tools.protoc \
-  -Iproto \
-  --python_out=ai-service/app/generated \
-  --grpc_python_out=ai-service/app/generated \
-  proto/document_ai.proto
-python -m pytest ai-service/tests -v
+docker compose exec -T -w /workspace/ai-service ai-service python -m pytest tests -q
 ```
 
-### Spring Boot
+Python direct dependencies are listed in requirements.txt; the Docker build installs the fully pinned requirements.lock. Regenerate the lock in a clean Python 3.12 environment after changing direct dependencies, then rebuild and rerun both suites.
 
-With Maven and Java 21 installed:
+Tests that need a live pgvector database skip until TEST_DATABASE_URL is set. To run them with Compose's configured database:
 
 ```bash
-mvn -f backend/pom.xml test
+docker compose exec -T -w /workspace/ai-service ai-service \
+  sh -c 'TEST_DATABASE_URL="$DATABASE_URL" python -m pytest tests -q'
 ```
 
-Without local Maven, use Docker:
+Spring unit/API tests (Java 21 and Maven are supplied by the image):
 
 ```bash
-docker run --rm \
-  -v "$PWD:/workspace" \
-  -w /workspace \
-  maven:3.9-eclipse-temurin-21 \
-  mvn -f backend/pom.xml test
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  -v documentqa-maven-cache:/root/.m2 \
+  maven:3.9-eclipse-temurin-21 mvn -B -ntp -f backend/pom.xml test
 ```
+
+Real end-to-end smoke test:
+
+```bash
+docker compose exec -T ai-service python /workspace/scripts/smoke_test.py
+```
+
+The smoke test creates demo documents and question history and leaves them available for inspection. Live vector-store tests create unique temporary records and delete only their own records afterward.
 
 ## Configuration
 
-`.env.example` documents the available local values:
+Edit .env, then run docker compose up --build -d. See [.env.example](.env.example) for all defaults.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BACKEND_PORT` | `8080` | Port exposed on the host |
-| `AI_SERVICE_PORT` | `50051` | Python gRPC port inside Docker |
+| BACKEND_PORT | 8080 | Local REST port |
+| POSTGRES_DB / USER / PASSWORD | documentqa | Local database credentials |
+| LLM_MODEL | llama3.2:3b | Local chat model; tested on CPU |
+| EMBEDDING_MODEL | nomic-embed-text | Embedding model |
+| EMBEDDING_DIMENSIONS | 768 | Required embedding length |
+| RETRIEVAL_TOP_K | 4 | Maximum returned chunks |
+| RETRIEVAL_MIN_SIMILARITY | 0.35 | Minimum cosine similarity |
+| AI_RPC_DEADLINE_SECONDS | 300 | Maximum document/question RPC duration |
+| MODEL_TIMEOUT_SECONDS | 240 | Individual Ollama request timeout |
 
-For a native Spring run, `AI_SERVICE_HOST` defaults to `localhost`. Docker Compose overrides it to `ai-service`.
+Changing the embedding model or dimension requires re-uploading documents. Stored chunks record both; incompatible queries are rejected. Database passwords used in DATABASE_URL must be URL-safe or percent-encoded there.
 
-## Troubleshooting
+## Grounding and scope
 
-Check service state and recent logs:
+The chain instructs the model to answer only from retrieved excerpts and to ignore instructions embedded in documents. When no relevant chunk passes the threshold, it returns a fixed insufficient-information answer without calling the chat model.
+
+Sources represent the retrieved context, not an independent factual verification. Small local models can still make mistakes or cite incorrectly. Inspect excerpts, try a larger LLM if resources permit, and tune the retrieval threshold for your documents.
+
+This is a local learning backend. Each request concerns one document; multiple document IDs can coexist and retrieval is isolated. Authentication, OCR, conversations, a UI, queues, and object storage are outside this V1.
+
+## Stop, rebuild, and troubleshoot
 
 ```bash
-docker compose ps
-docker compose logs --tail=100 backend ai-service
+docker compose logs --tail=100 backend ai-service postgres ollama-init
+docker compose down
+docker compose up --build -d
 ```
 
-If port `8080` is already used, change `BACKEND_PORT` in `.env`, rebuild, and call the new port.
+Normal down preserves PostgreSQL and Ollama volumes. Keep volumes when restarting; deleting them removes uploaded data and downloaded models.
 
-If the backend returns `503`, confirm that `ai-service` is healthy. Compose waits for the Python gRPC port before starting the backend, but a later Python crash will still be reported as `503`.
+If startup is waiting, inspect ollama-init logs. Model downloads require internet access; retry with docker compose up -d after resolving connectivity.
 
-## Future learning milestones
+If you get 503, inspect Python/PostgreSQL/Ollama logs. If a model is absent, run docker compose run --rm ollama-init. If an upload times out, use a smaller document or increase both timeouts. Processing is synchronous; do not automatically retry an uncertain upload because it creates a new document.
 
-The attached project brief can be implemented incrementally after this foundation:
+If port 8080 is occupied, change BACKEND_PORT and use the new port. PDF scans require OCR, which is not included. UTF-8 is required for TXT.
 
-1. Add document metadata and upload endpoints in Spring Boot.
-2. Send PDF/TXT bytes to Python over a new RPC.
-3. Extract and split text.
-4. Add PostgreSQL and pgvector.
-5. Generate embeddings and verify similarity retrieval.
-6. Add LangChain and Ollama for grounded answers.
-7. Store question and answer history.
-
-Keeping these stages separate makes each technology boundary testable before adding the next one.
+For schema and ownership details see [architecture](docs/architecture.md) and [database notes](database/README.md).

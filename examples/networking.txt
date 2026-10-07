@@ -1,0 +1,5 @@
+TCP stands for Transmission Control Protocol. It is connection-oriented and provides reliable delivery using acknowledgements and retransmissions.
+
+UDP stands for User Datagram Protocol. It is connectionless and does not guarantee delivery or packet ordering. It has lower overhead than TCP and is often used for real-time streaming.
+
+DNS stands for Domain Name System. It translates domain names into IP addresses.

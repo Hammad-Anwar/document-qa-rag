@@ -1,20 +1,68 @@
 services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-documentqa}
+      POSTGRES_USER: ${POSTGRES_USER:-documentqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documentqa}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:0.11.10
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: 1
+      OLLAMA_MAX_LOADED_MODELS: 1
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-init:
+    image: ollama/ollama:0.11.10
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['ollama pull "$$EMBEDDING_MODEL" && ollama pull "$$LLM_MODEL"']
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+    depends_on:
+      ollama:
+        condition: service_healthy
+
   ai-service:
     build:
       context: .
       dockerfile: ai-service/Dockerfile
     environment:
-      GRPC_PORT: ${AI_SERVICE_PORT:-50051}
+      GRPC_PORT: "50051"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-documentqa}:${POSTGRES_PASSWORD:-documentqa}@postgres:5432/${POSTGRES_DB:-documentqa}
+      OLLAMA_BASE_URL: http://ollama:11434
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+      MODEL_TIMEOUT_SECONDS: ${MODEL_TIMEOUT_SECONDS:-240}
+      RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-4}
+      RETRIEVAL_MIN_SIMILARITY: ${RETRIEVAL_MIN_SIMILARITY:-0.35}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import socket; connection = socket.create_connection(('127.0.0.1', 50051), 2); connection.close()"
-      interval: 3s
-      timeout: 3s
-      retries: 10
-      start_period: 3s
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
 
   backend:
     build:
@@ -22,9 +70,19 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       AI_SERVICE_HOST: ai-service
-      AI_SERVICE_PORT: ${AI_SERVICE_PORT:-50051}
+      AI_SERVICE_PORT: "50051"
+      AI_RPC_DEADLINE_SECONDS: ${AI_RPC_DEADLINE_SECONDS:-300}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-documentqa}
+      POSTGRES_USER: ${POSTGRES_USER:-documentqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documentqa}
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:
+      postgres:
+        condition: service_healthy
       ai-service:
         condition: service_healthy
+
+volumes:
+  postgres_data:
+  ollama_data:

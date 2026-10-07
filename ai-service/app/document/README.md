@@ -1,3 +1,3 @@
-# Document package
+# Document processing
 
-Reserved for future PDF/TXT loading, text cleaning, splitting, and processing. Document processing is not part of the ping milestone.
+loader.py validates and extracts PDF/TXT text in memory. splitter.py uses LangChain with 1000-character chunks and 200-character overlap, preserving PDF pages. processor.py batches embeddings and delegates atomic storage. Scanned/encrypted PDFs and unusable text are rejected.

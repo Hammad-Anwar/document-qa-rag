@@ -1,3 +1,3 @@
-# Database package
+# Python database adapter
 
-Reserved for the future Python connection to PostgreSQL and pgvector. It contains no runtime database code in the ping milestone.
+connection.py opens bounded PostgreSQL connections, registers the pgvector adapter, and sets a statement timeout. Python owns document_chunks; Spring owns document metadata/question history and Flyway migrations.

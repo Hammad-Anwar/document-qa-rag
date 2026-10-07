@@ -1,2 +1,2 @@
-/** Future Spring Data repositories for application-owned records. */
+/** JDBC persistence for application-owned document metadata and question history. */
 package com.example.documentqa.repository;

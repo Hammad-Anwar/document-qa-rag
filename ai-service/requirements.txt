@@ -1,3 +1,8 @@
 grpcio==1.74.0
 grpcio-tools==1.74.0
 pytest==8.4.1
+pypdf==6.1.1
+langchain-ollama==0.3.10
+langchain-text-splitters==0.3.11
+psycopg[binary]==3.2.10
+pgvector==0.4.1

@@ -16,6 +16,7 @@ public class GrpcClientConfig {
         @Value("${ai.grpc.port}") int port
     ) {
         return ManagedChannelBuilder.forAddress(host, port)
+            .maxInboundMessageSize(12 * 1024 * 1024)
             .usePlaintext()
             .build();
     }
