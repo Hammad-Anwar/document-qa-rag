@@ -14,6 +14,13 @@ From the outer document-backend folder:
 cd document-qa-rag
 # Optional: copy only on first setup; preserve an existing .env.
 cp -n .env.example .env
+```
+
+Set a unique POSTGRES_PASSWORD in your ignored .env before starting. You can generate a value locally with `openssl rand -hex 32`; do not commit or share it. The example intentionally leaves the password blank, and Compose rejects missing/empty passwords. If you already have a database volume, follow the rotation steps below before changing its password.
+
+Then start:
+
+```bash
 docker compose up --build -d
 docker compose ps -a
 docker compose logs -f ollama-init backend ai-service
@@ -127,7 +134,8 @@ Edit .env, then run docker compose up --build -d. See [.env.example](.env.exampl
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | BACKEND_PORT | 8080 | Local REST port |
-| POSTGRES_DB / USER / PASSWORD | documentqa | Local database credentials |
+| POSTGRES_DB / POSTGRES_USER | documentqa | Local database and role names |
+| POSTGRES_PASSWORD | Required; no default | Set only in ignored .env or runtime environment |
 | LLM_MODEL | llama3.2:3b | Local chat model; tested on CPU |
 | EMBEDDING_MODEL | nomic-embed-text | Embedding model |
 | EMBEDDING_DIMENSIONS | 768 | Required embedding length |
@@ -138,6 +146,20 @@ Edit .env, then run docker compose up --build -d. See [.env.example](.env.exampl
 | MODEL_CONTEXT_TOKENS | 4096 | LLM context window size |
 
 Changing the embedding model or dimension requires re-uploading documents. Stored chunks record both; incompatible queries are rejected. Database passwords used in DATABASE_URL must be URL-safe or percent-encoded there.
+
+Compose constructs DATABASE_URL for Python and passes POSTGRES_PASSWORD to Spring. When running Python outside Compose, explicitly configure DATABASE_URL; imports still work without it, but Settings construction rejects missing/blank values. Spring likewise requires a runtime POSTGRES_PASSWORD instead of a committed fallback.
+
+### Rotate an existing database password
+
+Changing .env does not change the PostgreSQL role password in an existing volume. Generate a new password locally, put it in the ignored .env, then connect to the still-running database before recreating containers:
+
+```bash
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+At the psql prompt, enter `\password`, supply the same new password from .env twice, then enter `\q`. This updates the current database role without writing the plaintext password into a SQL command. Recreate services with `docker compose up --build -d` and verify an upload/question works.
+
+Rotate any committed password wherever it was used; updating source does not erase Git history or invalidate old credentials. Keep PostgreSQL/model volumes. Do not mark a secret-scanner alert revoked until the old password no longer authenticates. Do not share `docker compose config` output, since resolved configuration includes credentials; use `docker compose config --quiet` for validation.
 
 ## Grounding and scope
 

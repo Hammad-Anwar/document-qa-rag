@@ -1,10 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 
 
 @dataclass(frozen=True)
 class Settings:
-    database_url: str = os.getenv("DATABASE_URL", "postgresql://documentqa:documentqa@localhost:5432/documentqa")
+    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
     ollama_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
     llm_model: str = os.getenv("LLM_MODEL", "llama3.2:3b")
@@ -15,6 +15,8 @@ class Settings:
     model_context_tokens: int = int(os.getenv("MODEL_CONTEXT_TOKENS", "4096"))
 
     def __post_init__(self):
+        if not self.database_url or not self.database_url.strip():
+            raise ValueError("DATABASE_URL must be configured before starting the AI service")
         if self.dimensions < 1 or self.timeout < 1 or not 1 <= self.top_k <= 20:
             raise ValueError("Invalid model or retrieval configuration")
         if not -1 <= self.min_similarity <= 1:

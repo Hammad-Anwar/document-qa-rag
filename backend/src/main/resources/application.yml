@@ -4,7 +4,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/documentqa}
     username: ${POSTGRES_USER:documentqa}
-    password: ${POSTGRES_PASSWORD:documentqa}
+    password: ${POSTGRES_PASSWORD}
     hikari:
       connection-timeout: 5000
   servlet:

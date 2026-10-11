@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-documentqa}
       POSTGRES_USER: ${POSTGRES_USER:-documentqa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documentqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -44,7 +44,7 @@ services:
       dockerfile: ai-service/Dockerfile
     environment:
       GRPC_PORT: "50051"
-      DATABASE_URL: postgresql://${POSTGRES_USER:-documentqa}:${POSTGRES_PASSWORD:-documentqa}@postgres:5432/${POSTGRES_DB:-documentqa}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-documentqa}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-documentqa}
       OLLAMA_BASE_URL: http://ollama:11434
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
@@ -75,7 +75,7 @@ services:
       AI_RPC_DEADLINE_SECONDS: ${AI_RPC_DEADLINE_SECONDS:-300}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-documentqa}
       POSTGRES_USER: ${POSTGRES_USER:-documentqa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documentqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:
